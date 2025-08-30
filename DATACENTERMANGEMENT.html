@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Paradise Data Center Management</title>
+<style>
+  /* Reset & base */
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    color: #202124;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  body.dark {
+    background-color: #121212;
+    color: #e8e6e3;
+  }
+  h1, h2 {
+    margin: 0 0 0.5rem 0;
+    font-weight: 700;
+  }
+  header {
+    background: #0078d7;
+    color: white;
+    padding: 1rem 2rem;
+    text-align: center;
+    font-size: 1.8rem;
+    letter-spacing: 0.05em;
+  }
+  .container {
+    max-width: 1200px;
+    margin: 1rem auto 2rem;
+    padding: 0 20px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill,minmax(280px,1fr));
+    gap: 20px;
+  }
+  .card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgb(0 0 0 / 0.05);
+    padding: 1.3rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  body.dark .card {
+    background-color: #1e1e1e;
+    color: #ddd;
+    box-shadow: 0 8px 20px rgb(255 255 255 / 0.1);
+  }
+  .card h2 {
+    font-size: 1.2rem;
+  }
+  .asset-list, .security-logs, .alerts-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    max-height: 210px;
+  }
+  .asset-list li, .security-logs li, .alerts-list li {
+    padding: 6px 8px;
+    border-bottom: 1px solid #ddd;
+    font-size: 0.9rem;
+  }
+  body.dark .asset-list li, body.dark .security-logs li, body.dark .alerts-list li {
+    border-bottom: 1px solid #444;
+  }
+  .form-group {
+    margin: 10px 0;
+    display: flex;
+    gap: 8px;
+  }
+  input[type=text], button {
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    flex: 1;
+    transition: border-color 0.3s;
+  }
+  input[type=text]:focus {
+    outline: none;
+    border-color: #0078d7;
+  }
+  button {
+    background-color: #0078d7;
+    color: white;
+    border: none;
+    cursor: pointer;
+    flex: 0 0 110px;
+    font-weight: 600;
+  }
+  button:hover {
+    background-color: #005fa3;
+  }
+  button:disabled {
+    background: #8ab3e8;
+    cursor: not-allowed;
+  }
+  .status-ok {
+    color: #27ae60;
+    font-weight: 700;
+  }
+  .status-warn {
+    color: #e67e22;
+    font-weight: 700;
+  }
+  .status-error {
+    color: #c0392b;
+    font-weight: 700;
+  }
+  .controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 15px;
+  }
+  .toggle-switch {
+    cursor: pointer;
+    width: 50px;
+    height: 26px;
+    position: relative;
+  }
+  .toggle-switch input {
+    display: none;
+  }
+  .slider {
+    position: absolute;
+    background-color: #ccc;
+    border-radius: 26px;
+    width: 100%;
+    height: 100%;
+    transition: 0.3s;
+  }
+  .slider:before {
+    content: "";
+    position: absolute;
+    background-color: white;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: 0.3s;
+  }
+  input:checked + .slider {
+    background-color: #0078d7;
+  }
+  input:checked + .slider:before {
+    transform: translateX(24px);
+  }
+  canvas {
+    max-width: 100%;
+    height: 220px;
+  }
+  .assistant {
+    margin-top: 10px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    height: 260px;
+    display: flex;
+    flex-direction: column;
+    background-color: #fafafa;
+  }
+  body.dark .assistant {
+    background-color: #292929;
+    border-color: #444;
+  }
+  .assistant-log {
+    flex: 1;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+  }
+  .assistant-input-container {
+    display: flex;
+    gap: 10px;
+  }
+  .assistant-input {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 0.95rem;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+  .assistant-input:focus {
+    outline: none;
+    border-color: #0078d7;
+  }
+</style>
+</head>
+<body>
+
+<header>Paradise Data Center Management</header>
+<div class="container">
+  <div class="controls">
+    <label class="toggle-switch" title="Toggle Dark Mode">
+      <input type="checkbox" id="darkModeToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
+  
+  <div class="grid">
+    <!-- Asset Management -->
+    <section class="card" id="assetsCard">
+      <h2>Asset Inventory</h2>
+      <form id="assetForm" aria-label="Add asset">
+        <div class="form-group">
+          <input id="assetName" type="text" placeholder="Server Name/ID" required autocomplete="off" aria-required="true" />
+          <input id="assetLocation" type="text" placeholder="Rack Location" required autocomplete="off" aria-required="true" />
+          <button type="submit" aria-label="Add asset">Add</button>
+        </div>
+      </form>
+      <input id="assetSearch" type="text" placeholder="Search assets..." aria-label="Search assets"/>
+      <ul class="asset-list" id="assetList" aria-live="polite" aria-relevant="additions"></ul>
+    </section>
+
+    <!-- Environmental -->
+    <section class="card" id="environmentCard">
+      <h2>Environmental Monitoring</h2>
+      <div>
+        <strong>Temperature:</strong> <span id="envTemp" aria-live="polite" aria-atomic="true">-- °C</span><br />
+        <strong>Humidity:</strong> <span id="envHumidity" aria-live="polite" aria-atomic="true">-- %</span><br />
+        <span id="envStatus" class="status-ok" aria-live="assertive" aria-atomic="true">Stable Environment</span>
+      </div>
+      <canvas id="envChart" aria-label="Temperature and humidity trend"></canvas>
+    </section>
+
+    <!-- Power -->
+    <section class="card" id="powerCard">
+      <h2>Power Consumption</h2>
+      <div>
+        <strong>Current Usage:</strong> <span id="powerUsage" aria-live="polite" aria-atomic="true">-- kW</span><br />
+        <strong>Status:</strong> <span id="powerStatus" class="status-ok" aria-live="assertive" aria-atomic="true">Normal</span>
+      </div>
+      <canvas id="powerChart" aria-label="Power consumption trend"></canvas>
+    </section>
+
+    <!-- Security Logs -->
+    <section class="card" id="securityCard">
+      <h2>Security Logs</h2>
+      <ul class="security-logs" id="securityLogs" aria-live="polite" aria-atomic="false"></ul>
+    </section>
+
+    <!-- Alerts -->
+    <section class="card" id="alertsCard">
+      <h2>Active Alerts</h2>
+      <ul class="alerts-list" id="alertsList" aria-live="assertive" aria-atomic="true"></ul>
+      <button id="clearAlertsBtn" aria-label="Clear all alerts" style="margin-top:10px;">Clear Alerts</button>
+    </section>
+
+    <!-- AI Assistant -->
+    <section class="card" id="assistantCard" style="grid-column: span 2;">
+      <h2>Paradise Assistant</h2>
+      <div class="assistant" role="region" aria-live="polite" aria-label="Assistant conversation log" id="assistantLog"></div>
+      <div class="assistant-input-container">
+        <input id="assistantInput" type="text" class="assistant-input" placeholder="Ask Paradise..." aria-label="Ask Paradise"/>
+        <button id="assistantSendBtn" aria-label="Send message to assistant">Send</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (() => {
+    // Dark Mode
+    const darkToggle = document.getElementById('darkModeToggle');
+    darkToggle.checked = localStorage.getItem('darkMode') === 'true';
+    toggleDarkMode(darkToggle.checked);
+    darkToggle.addEventListener('change', () => {
+      toggleDarkMode(darkToggle.checked);
+    });
+    function toggleDarkMode(enabled) {
+      document.body.classList.toggle('dark', enabled);
+      localStorage.setItem('darkMode', enabled);
+    }
+
+    // Asset Management
+    const assets = [];
+    const assetForm = document.getElementById('assetForm');
+    const assetNameInput = document.getElementById('assetName');
+    const assetLocationInput = document.getElementById('assetLocation');
+    const assetList = document.getElementById('assetList');
+    const assetSearch = document.getElementById('assetSearch');
+
+    function renderAssets(filter = '') {
+      assetList.innerHTML = '';
+      const filtered = assets
+        .filter(({name, location}) =>
+          name.toLowerCase().includes(filter.toLowerCase()) ||
+          location.toLowerCase().includes(filter.toLowerCase()));
+      filtered.forEach(({name, location}) => {
+        const li = document.createElement('li');
+        li.textContent = `${name} (Rack: ${location})`;
+        assetList.appendChild(li);
+      });
+      // If empty show no assets message
+      if(filtered.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'No matching assets found.';
+        li.style.fontStyle = 'italic';
+        assetList.appendChild(li);
+      }
+    }
+
+    assetForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const name = assetNameInput.value.trim();
+      const location = assetLocationInput.value.trim();
+      if (name && location) {
+        // Prevent duplicates
+        if(!assets.some(a => a.name.toLowerCase() === name.toLowerCase())) {
+          assets.push({name, location});
+          renderAssets(assetSearch.value);
+          assetNameInput.value = '';
+          assetLocationInput.value = '';
+          assetNameInput.focus();
+          addAlert(`New asset added: ${name}`);
+        } else {
+          alert("Asset with this name already exists.");
+        }
+      }
+    });
+
+    assetSearch.addEventListener('input', () => {
+      renderAssets(assetSearch.value);
+    });
+
+    renderAssets();
+
+    // Env monitoring simulation and trend chart
+    const envTempEl = document.getElementById('envTemp');
+    const envHumidityEl = document.getElementById('envHumidity');
+    const envStatusEl = document.getElementById('envStatus');
+    const envChartCtx = document.getElementById('envChart').getContext('2d');
+
+    // Power monitoring simulation and chart
+    const powerUsageEl = document.getElementById('powerUsage');
+    const powerStatusEl = document.getElementById('powerStatus');
+    const powerChartCtx = document.getElementById('powerChart').getContext('2d');
+
+    // Alerts
+    const alertsListEl = document.getElementById('alertsList');
+    const clearAlertsBtn = document.getElementById('clearAlertsBtn');
+    const alerts = [];
+
+    function addAlert(message, severity = 'warn') {
+      const now = new Date();
+      const entry = {time: now.toLocaleTimeString(), message, severity};
+      alerts.push(entry);
+      renderAlerts();
+    }
+
+    function renderAlerts() {
+      alertsListEl.innerHTML = '';
+      if(alerts.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'No active alerts.';
+        li.style.fontStyle = 'italic';
+        alertsListEl.appendChild(li);
+        return;
+      }
+      // Show last 10 alerts, newest first
+      alerts.slice(-10).reverse().forEach(({time, message, severity}) => {
+        const li = document.createElement('li');
+        li.textContent = `[${time}] ${message}`;
+        li.className = severity === 'warn' ? 'status-warn' : severity === 'error' ? 'status-error' : 'status-ok';
+        alertsListEl.appendChild(li);
+      });
+    }
+
+    clearAlertsBtn.addEventListener('click', () => {
+      if(confirm("Clear all alerts?")) {
+        alerts.length = 0;
+        renderAlerts();
+      }
+    });
+
+    renderAlerts();
+
+    // Environmental trending data
+    const envData = {temps: [], humidity: [], times: []};
+    // Power trending data
+    const powerData = {usage: [], times: []};
+
+    function updateEnvironmentData() {
+      const now = new Date();
+      const timeLabel = now.toLocaleTimeString();
+
+      // Simulate Temperature degrees Celsius (18-30 normal, over 27 warning, under 18 error)
+      let temp = 22 + (Math.random() * 6 - 3); // fluctuate around 22 ±3
+      temp = Math.round(temp * 10) / 10;
+
+      // Simulate Humidity % (35-60 normal, over 65 warning, under 35 error)
+      let humidity = 50 + (Math.random() * 20 - 10); 
+      humidity = Math.round(humidity * 10) / 10;
+
+      envTempEl.textContent = `${temp} °C`;
+      envHumidityEl.textContent = `${humidity} %`;
+
+      // Set environment status & alert
+      let envSeverity = 'ok';
+      let statusMsg = 'Stable Environment';
+
+      if(temp > 27 || humidity > 65) {
+        statusMsg = 'Warning: Environment parameters high!';
+        envSeverity = 'warn';
+        addAlert(`Environmental warning! Temp: ${temp}, Humidity: ${humidity}`, 'warn');
+      } else if (temp < 18 || humidity < 35) {
+        statusMsg = 'Critical: Environment parameters low!';
+        envSeverity = 'error';
+        addAlert(`Environmental critical alert! Temp: ${temp}, Humidity: ${humidity}`, 'error');
+      }
+
+      envStatusEl.textContent = statusMsg;
+      envStatusEl.className = envSeverity === 'ok' ? 'status-ok' : envSeverity === 'warn' ? 'status-warn' : 'status-error';
+
+      // Maintain trend lists capped to 20 points
+      if(envData.temps.length >= 20) {
+        envData.temps.shift();
+        envData.humidity.shift();
+        envData.times.shift();
+      }
+
+      envData.temps.push(temp);
+      envData.humidity.push(humidity);
+      envData.times.push(timeLabel);
+
+      envChart.update();
+    }
+
+    function updatePowerData() {
+      const now = new Date();
+      const timeLabel = now.toLocaleTimeString();
+
+      // Simulate power usage in kW (500-1000 normal, > 950 warn, < 510 error)
+      let usage = 750 + (Math.random() * 200 - 100);
+      usage = Math.round(usage * 10) / 10;
+
+      powerUsageEl.textContent = `${usage} kW`;
+
+      let powerSeverity = 'ok';
+      let powerStatus = 'Normal';
+
+      if(usage > 950) {
+        powerSeverity = 'warn';
+        powerStatus = 'High power consumption';
+        addAlert(`High power consumption alert! ${usage} kW`, 'warn');
+      } else if (usage < 510) {
+        powerSeverity = 'error';
+        powerStatus = 'Power supply irregular';
+        addAlert(`Power supply irregularity alert! ${usage} kW`, 'error');
+      }
+      powerStatusEl.textContent = powerStatus;
+      powerStatusEl.className = powerSeverity === 'ok' ? 'status-ok' : powerSeverity === 'warn' ? 'status-warn' : 'status-error';
+
+      if(powerData.usage.length >= 20) {
+        powerData.usage.shift();
+        powerData.times.shift();
+      }
+
+      powerData.usage.push(usage);
+      powerData.times.push(timeLabel);
+      powerChart.update();
+    }
+
+    // Chart Setup
+    const envChart = new Chart(envChartCtx, {
+      type: 'line',
+      data: {
+        labels: envData.times,
+        datasets: [
+          {label: 'Temperature (°C)', data: envData.temps, borderColor: '#e74c3c', backgroundColor: 'rgba(231, 76, 60, 0.2)', yAxisID: 'y', tension: 0.4, fill: true},
+          {label: 'Humidity (%)', data: envData.humidity, borderColor: '#3498db', backgroundColor: 'rgba(52, 152, 219, 0.2)', yAxisID: 'y1', tension: 0.4, fill: true}
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: {mode: 'index', intersect: false},
+        stacked: false,
+        scales: {
+          y: {
+            type: 'linear',
+            position: 'left',
+            min: 10,
+            max: 40,
+            title: {display: true, text: 'Temperature (°C)'}
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            min: 20,
+            max: 80,
+            grid: {drawOnChartArea: false},
+            title: {display: true, text: 'Humidity (%)'}
+          }
+        },
+        plugins: {
+          legend: {position: 'top'}
+        }
+      }
+    });
+
+    const powerChart = new Chart(powerChartCtx, {
+      type: 'line',
+      data: {
+        labels: powerData.times,
+        datasets: [
+          {label: 'Power Usage (kW)', data: powerData.usage, borderColor: '#f39c12', backgroundColor: 'rgba(243, 156, 18, 0.25)', tension: 0.4, fill: true}
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+          y: {
+            min: 400,
+            max: 1100,
+            title: {display: true, text: 'kW'}
+          }
+        },
+        plugins: {
+          legend: {position: 'top'}
+        }
+      }
+    });
+
+    // Security Logs Simulation
+    const securityLogsEl = document.getElementById('securityLogs');
+    const securityLogs = [];
+    const securityEvents = [
+      'User admin logged in',
+      'Failed login attempt from IP 192.168.1.12',
+      'New firewall rule created',
+      'VPN connection established - user ops_team',
+      'Backup started for Rack 5',
+      'Unusual network traffic detected',
+      'Camera 3 motion detected in Server Room',
+      'Access granted to server rack 12',
+      'Patch applied to web server',
+      'Power supply failover activated'
+    ];
+
+    function addSecurityLog(event) {
+      const now = new Date();
+      securityLogs.push({time: now.toLocaleTimeString(), event});
+      if(securityLogs.length > 20) securityLogs.shift();
+      renderSecurityLogs();
+    }
+
+    function renderSecurityLogs() {
+      securityLogsEl.innerHTML = '';
+      securityLogs.slice().reverse().forEach(({time, event}) => {
+        const li = document.createElement('li');
+        li.textContent = `[${time}] ${event}`;
+        securityLogsEl.appendChild(li);
+      });
+      if(securityLogs.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = 'No security events.';
+        li.style.fontStyle = 'italic';
+        securityLogsEl.appendChild(li);
+      }
+    }
+    renderSecurityLogs();
+
+    // Simulate random logs every 30 seconds
+    setInterval(() => {
+      const randomEvent = securityEvents[Math.floor(Math.random() * securityEvents.length)];
+      addSecurityLog(randomEvent);
+    }, 30000);
+
+    // Update simulated data every 60 seconds
+    function updateAll() {
+      updateEnvironmentData();
+      updatePowerData();
+    }
+    updateAll();
+    setInterval(updateAll, 60000);
+
+    // Initial fill with dummy data for charts (simulate 20 mins)
+    for(let i = 0; i < 20; i++) {
+      updateEnvironmentData();
+      updatePowerData();
+    }
+
+    // Paradise Assistant - basic rule based chat
+    const assistantLogEl = document.getElementById('assistantLog');
+    const assistantInput = document.getElementById('assistantInput');
+    const assistantSendBtn = document.getElementById('assistantSendBtn');
+
+    function addAssistantMessage(message, fromUser = false) {
+      const p = document.createElement('p');
+      p.textContent = (fromUser ? 'You: ' : 'Paradise: ') + message;
+      p.style.margin = '3px 0';
+      p.style.whiteSpace = 'pre-wrap';
+      p.style.color = fromUser ? '#0078d7' : (document.body.classList.contains('dark') ? '#a3d2fc' : '#202124');
+      assistantLogEl.appendChild(p);
+      assistantLogEl.scrollTop = assistantLogEl.scrollHeight;
+    }
+
+    function getAssistantReply(message) {
+      // Basic keyword detection logic
+      message = message.toLowerCase();
+
+      if(message.includes('hello') || message.includes('hi')) {
+        return "Hello! I'm Paradise, your data center assistant. How can I help you today?";
+      }
+      if(message.includes('temperature')) {
+        return `Current temperature is ${envTempEl.textContent}.`;
+      }
+      if(message.includes('humidity')) {
+        return `Humidity level is ${envHumidityEl.textContent}.`;
+      }
+      if(message.includes('power')) {
+        return `Power usage is ${powerUsageEl.textContent} and status is ${powerStatusEl.textContent}.`;
+      }
+      if(message.includes('assets')) {
+        return `There are currently ${assets.length} assets registered. Use the asset inventory panel to see more details.`;
+      }
+      if(message.includes('alerts')) {
+        if(alerts.length === 0) return "No active alerts currently.";
+        return `There are ${alerts.length} active alerts. Check the Alerts panel for details.`;
+      }
+      if(message.includes('help')) {
+        return "You can ask me about temperature, humidity, power usage, assets, alerts, or say hello!";
+      }
+      return "I'm sorry, I didn't understand that. Try asking about temperature, power, or assets.";
+    }
+
+    function handleAssistantInput() {
+      const userMsg = assistantInput.value.trim();
+      if(!userMsg) return;
+      addAssistantMessage(userMsg, true);
+      assistantInput.value = '';
+      setTimeout(() => {
+        const reply = getAssistantReply(userMsg);
+        addAssistantMessage(reply, false);
+      }, 500);
+    }
+
+    assistantSendBtn.addEventListener('click', handleAssistantInput);
+    assistantInput.addEventListener('keydown', e => {
+      if(e.key === 'Enter') {
+        handleAssistantInput();
+      }
+    });
+
+  })();
+</script>
+
+</body>
+</html>
